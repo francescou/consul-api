@@ -1,6 +1,7 @@
 package com.ecwid.consul.transport;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 
 import org.apache.http.Header;
@@ -11,10 +12,12 @@ import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.PoolingClientConnectionManager;
+import org.apache.http.impl.conn.SingleClientConnManager;
+import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 
 public class AbstractHttpTransport implements HttpTransport {
@@ -22,9 +25,7 @@ public class AbstractHttpTransport implements HttpTransport {
 	protected final HttpClient httpClient;
 
 	public AbstractHttpTransport() {
-		PoolingClientConnectionManager connectionManager = new PoolingClientConnectionManager();
-		connectionManager.setMaxTotal(1000);
-		connectionManager.setDefaultMaxPerRoute(500);
+		ClientConnectionManager connectionManager = new SingleClientConnManager();
 
 		this.httpClient = new DefaultHttpClient(connectionManager);
 	}
@@ -42,7 +43,11 @@ public class AbstractHttpTransport implements HttpTransport {
 	@Override
 	public RawResponse makePutRequest(String url, String content) {
 		HttpPut httpPut = new HttpPut(url);
-		httpPut.setEntity(new StringEntity(content, Charset.forName("UTF-8")));
+		try {
+			httpPut.setEntity(new StringEntity(content, HTTP.UTF_8));
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
 		return executeRequest(httpPut);
 	}
 
@@ -67,7 +72,7 @@ public class AbstractHttpTransport implements HttpTransport {
 					int statusCode = response.getStatusLine().getStatusCode();
 					String statusMessage = response.getStatusLine().getReasonPhrase();
 
-					String content = EntityUtils.toString(response.getEntity(), Charset.forName("UTF-8"));
+					String content = EntityUtils.toString(response.getEntity(), HTTP.UTF_8);
 
 					Long consulIndex = parseLong(response.getFirstHeader("X-Consul-Index"));
 					Boolean consulKnownLeader = parseBoolean(response.getFirstHeader("X-Consul-Knownleader"));
